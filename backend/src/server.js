@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,15 +10,28 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Temporary storage. PostgreSQL comes in a later phase.
-let tasks = [
-  { id: 1, title: "Set up the SaaS repository", status: "completed" },
-  { id: 2, title: "Build the backend API", status: "pending" },
-];
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT || 5432),
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 5000,
+});
 
-let nextId = 3;
+async function initializeDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      title VARCHAR(200) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'completed')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
 
-// Health check
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "ok",
@@ -25,58 +39,86 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Retrieve all tasks
-app.get("/api/tasks", (req, res) => {
-  res.json(tasks);
+app.get("/ready", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ready", database: "connected" });
+  } catch {
+    res.status(503).json({ status: "not_ready" });
+  }
 });
 
-// Create a task
-app.post("/api/tasks", (req, res) => {
+app.get("/api/tasks", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, title, status FROM tasks ORDER BY id"
+    );
+    res.json(result.rows);
+  } catch {
+    res.status(500).json({ error: "Could not retrieve tasks" });
+  }
+});
+
+app.post("/api/tasks", async (req, res) => {
   const title = req.body.title?.trim();
 
-  if (!title) {
+  if (!title || title.length > 200) {
     return res.status(400).json({
-      error: "Task title is required",
+      error: "Title must contain between 1 and 200 characters",
     });
   }
 
-  const task = {
-    id: nextId++,
-    title,
-    status: "pending",
-  };
+  try {
+    const result = await pool.query(
+      "INSERT INTO tasks (title) VALUES ($1) RETURNING id, title, status",
+      [title]
+    );
 
-  tasks.push(task);
-
-  res.status(201).json(task);
+    res.status(201).json(result.rows[0]);
+  } catch {
+    res.status(500).json({ error: "Could not create task" });
+  }
 });
 
-// Update task status
-app.patch("/api/tasks/:id", (req, res) => {
+app.patch("/api/tasks/:id", async (req, res) => {
   const id = Number(req.params.id);
   const { status } = req.body;
 
-  if (!Number.isInteger(id) || id <= 0) {
+  if (!Number.isSafeInteger(id) || id <= 0) {
     return res.status(400).json({ error: "Invalid task ID" });
   }
 
   if (!["pending", "completed"].includes(status)) {
-    return res.status(400).json({
-      error: "Status must be pending or completed",
+    return res.status(400).json({ error: "Invalid task status" });
+  }
+
+  try {
+    const result = await pool.query(
+      "UPDATE tasks SET status = $1 WHERE id = $2 RETURNING id, title, status",
+      [status, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch {
+    res.status(500).json({ error: "Could not update task" });
+  }
+});
+
+async function start() {
+  try {
+    await initializeDatabase();
+
+    app.listen(PORT, () => {
+      console.log(`SaaS API listening on port ${PORT}`);
     });
+  } catch (error) {
+    console.error("Database initialization failed:", error.message);
+    process.exit(1);
   }
+}
 
-  const task = tasks.find((item) => item.id === id);
-
-  if (!task) {
-    return res.status(404).json({ error: "Task not found" });
-  }
-
-  task.status = status;
-
-  res.json(task);
-});
-
-app.listen(PORT, () => {
-  console.log(`SaaS API running on http://localhost:${PORT}`);
-});
+start();
