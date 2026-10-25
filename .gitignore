@@ -2,6 +2,8 @@ node_modules
 terraform.tfstate*
 *.env
 
+.git
+
 # Terraform local files
 **/.terraform/*
 *.tfstate
