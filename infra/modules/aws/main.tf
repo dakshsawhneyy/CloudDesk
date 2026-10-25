@@ -113,6 +113,20 @@ resource "aws_iam_role_policy_attachment" "execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role_policy" "read_db_secret" {
+  name = "read-database-secret"
+  role = aws_iam_role.execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = aws_secretsmanager_secret.db.arn
+    }]
+  })
+}
+
 resource "aws_iam_role" "task" {
   name               = "${var.project_name}-${var.environment}-ecs-task"
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume_role.json
@@ -192,10 +206,40 @@ resource "aws_ecs_task_definition" "api" {
           "awslogs-stream-prefix" = "api"
         }
       }
+
+      environment = [
+        {
+          name  = "DB_HOST"
+          value = aws_db_instance.main.address
+        },
+        {
+          name  = "DB_PORT"
+          value = "5432"
+        },
+        {
+          name  = "DB_NAME"
+          value = var.db_name
+        },
+        {
+          name  = "DB_SSL"
+          value = "true"
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "DB_USER"
+          valueFrom = "${aws_secretsmanager_secret.db.arn}:username::"
+        },
+        {
+          name      = "DB_PASSWORD"
+          valueFrom = "${aws_secretsmanager_secret.db.arn}:password::"
+        }
+      ]
     }
   ])
 
-  depends_on = [aws_iam_role_policy_attachment.execution]
+  depends_on = [aws_iam_role_policy_attachment.execution, aws_iam_role_policy.read_db_secret]
 }
 
 resource "aws_ecs_service" "api" {
@@ -220,4 +264,91 @@ resource "aws_ecs_service" "api" {
   }
 
   depends_on = [aws_lb_listener.http]
+}
+
+
+
+
+
+resource "aws_subnet" "database" {
+  count                   = 2
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = count.index == 0 ? "10.20.11.0/24" : "10.20.12.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "${var.environment}-database-${count.index + 1}"
+  }
+}
+
+resource "aws_db_subnet_group" "main" {
+  name       = "${var.project_name}-${var.environment}-db"
+  subnet_ids = aws_subnet.database[*].id
+}
+
+resource "aws_security_group" "database" {
+  name   = "${var.project_name}-${var.environment}-db-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.task.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "random_password" "db" {
+  length  = 24
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "db" {
+  name                    = "${var.project_name}/${var.environment}/postgres"
+  recovery_window_in_days = 7
+}
+
+resource "aws_secretsmanager_secret_version" "db" {
+  secret_id = aws_secretsmanager_secret.db.id
+
+  secret_string = jsonencode({
+    username = var.db_username
+    password = random_password.db.result
+  })
+}
+
+resource "aws_db_instance" "main" {
+  identifier             = "${var.project_name}-${var.environment}-db"
+  engine                 = "postgres"
+  instance_class         = "db.t3.micro"
+  allocated_storage      = 20
+  max_allocated_storage  = 100
+  storage_encrypted      = true
+
+  db_name  = var.db_name
+  username = var.db_username
+  password = random_password.db.result
+  port     = 5432
+
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.database.id]
+  publicly_accessible    = false
+
+  backup_retention_period = 1
+  skip_final_snapshot     = true
+  deletion_protection     = false
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
 }

@@ -18,3 +18,13 @@ variable "image_tag" {
   type        = string
   default     = "dev"
 }
+
+variable "db_name" {
+  type    = string
+  default = "saasdb"
+}
+
+variable "db_username" {
+  type    = string
+  default = "saasadmin"
+}
