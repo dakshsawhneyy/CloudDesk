@@ -18,3 +18,14 @@ variable "static_web_app_name" {
   description = "Globally unique name for the Static Web App"
   type        = string
 }
+
+variable "aws_region" {
+  type    = string
+  default = "ap-south-1"
+}
+
+variable "image_tag" {
+  description = "Immutable ECR image tag to deploy"
+  type        = string
+  default     = "dev"
+}

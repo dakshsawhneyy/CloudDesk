@@ -15,3 +15,13 @@ module "azure_frontend" {
   location            = var.azure_location
   static_web_app_name = var.static_web_app_name
 }
+
+# AWS Backend
+module "aws_backend" {
+  source = "../../modules/aws"
+
+  project_name = var.project_name
+  environment  = var.environment
+  aws_region   = var.aws_region
+  image_tag    = var.image_tag
+}

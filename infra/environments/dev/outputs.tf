@@ -15,3 +15,8 @@ output "frontend_url" {
 output "resource_group_name" {
   value = module.azure_frontend.resource_group_name
 }
+
+output "aws_api_url" {
+  description = "Public development API URL"
+  value       = module.aws_backend.api_url
+}
