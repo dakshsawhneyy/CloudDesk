@@ -104,6 +104,7 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
       ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      
       ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
       ECS_SERVICE: ${{ vars.ECS_SERVICE }}
       ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}

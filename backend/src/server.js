@@ -55,7 +55,7 @@ app.get("/api/tasks", async (req, res) => {
     );
     res.json(result.rows);
   } catch {
-    res.status(500).json({ error: "Could not retrieve tasks" });
+    res.status(500).json({ error: "Could not retrieve taskssss" });
   }
 });
 
