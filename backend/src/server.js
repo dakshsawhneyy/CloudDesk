@@ -73,7 +73,7 @@ app.get("/health", (req, res) => {
 app.get("/ready", async (req, res) => {
   try {
     await pool.query("SELECT 1");
-    res.json({ status: "ready", database: "connected" });
+    res.json({ status: "readyy", database: "connected" });
   } catch {
     res.status(503).json({ status: "not_ready" });
   }
