@@ -10,6 +10,8 @@ const PORT = process.env.PORT || 3000;
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 
+const { randomUUID } = require("node:crypto");
+
 app.use(express.json());
 
 const pool = new Pool({
@@ -59,6 +61,33 @@ const apiLimiter = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false,
 });
+
+
+app.use((req, res, next) => {
+  const requestId = randomUUID();
+  const startedAt = process.hrtime.bigint();
+
+  res.setHeader("X-Request-ID", requestId);
+
+  res.on("finish", () => {
+    const durationMs =
+      Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+
+    console.log(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: res.statusCode >= 500 ? "error" : "info",
+      event: "http_request_completed",
+      request_id: requestId,
+      method: req.method,
+      path: req.path,
+      status_code: res.statusCode,
+      duration_ms: Math.round(durationMs * 100) / 100,
+    }));
+  });
+
+  next();
+});
+
 
 app.use("/api", apiLimiter);
 
