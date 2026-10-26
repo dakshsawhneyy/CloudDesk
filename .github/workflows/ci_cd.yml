@@ -62,6 +62,7 @@ jobs:
         working-directory: backend
         run: npm audit --omit=dev --audit-level=high
 
+      # Debug
       # - name: Debug OIDC claims
       #   run: |
       #     TOKEN=$(curl -sH "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
