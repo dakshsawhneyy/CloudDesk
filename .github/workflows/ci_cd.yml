@@ -1,0 +1,231 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build-scan-publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t saas-api:${GITHUB_SHA} \
+            ./backend
+
+      - name: Scan Docker image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: saas-api:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL
+
+      # - name: Debug OIDC claims
+      #   run: |
+      #     TOKEN=$(curl -sH "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+      #       "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+      #     echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '{sub, aud, repository, ref}'
+
+      - name: Configure AWS credentials using OIDC
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push immutable image to ECR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          IMAGE_TAG="${GITHUB_SHA}"
+
+          docker tag "saas-api:${GITHUB_SHA}" \
+            "${REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+          docker push \
+            "${REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+  
+  
+  deploy-to-ecs:
+    name: Deploy to AWS ECS
+    needs: test-build-scan-publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+      ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+      ECS_TASK_FAMILY: ${{ vars.ECS_TASK_FAMILY }}
+      API_HEALTH_URL: ${{ vars.API_HEALTH_URL }}
+
+    steps:
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy image and verify release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          : "${AWS_REGION:?Missing AWS_REGION}"
+          : "${ECR_REPOSITORY:?Missing ECR_REPOSITORY}"
+          : "${ECS_CLUSTER:?Missing ECS_CLUSTER}"
+          : "${ECS_SERVICE:?Missing ECS_SERVICE}"
+          : "${ECS_TASK_FAMILY:?Missing ECS_TASK_FAMILY}"
+          : "${API_HEALTH_URL:?Missing API_HEALTH_URL}"
+
+          ACCOUNT_ID="$(aws sts get-caller-identity \
+            --query Account --output text)"
+
+          IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${GITHUB_SHA}"
+
+          echo "Release image: ${IMAGE_URI}"
+
+          # Capture the currently running task-definition revision.
+          PREVIOUS_TASK_DEFINITION="$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+
+          if [[ -z "$PREVIOUS_TASK_DEFINITION" ||
+                "$PREVIOUS_TASK_DEFINITION" == "None" ]]; then
+            echo "Could not determine the current task definition."
+            exit 1
+          fi
+
+          echo "Previous revision: $PREVIOUS_TASK_DEFINITION"
+
+          # Retrieve the existing task definition and change only the image.
+          aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_FAMILY" \
+            --query 'taskDefinition' \
+            --output json > task-definition.json
+
+          jq --arg image "$IMAGE_URI" '
+            del(
+              .taskDefinitionArn,
+              .revision,
+              .status,
+              .requiresAttributes,
+              .compatibilities,
+              .registeredAt,
+              .registeredBy,
+              .deregisteredAt
+            )
+            | .containerDefinitions[0].image = $image
+          ' task-definition.json > new-task-definition.json
+
+          NEW_TASK_DEFINITION="$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-definition.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)"
+
+          echo "New revision: $NEW_TASK_DEFINITION"
+
+          # Roll back to the previously selected revision on failure.
+          rollback() {
+            echo "Deployment verification failed. Rolling back."
+
+            aws ecs update-service \
+              --cluster "$ECS_CLUSTER" \
+              --service "$ECS_SERVICE" \
+              --task-definition "$PREVIOUS_TASK_DEFINITION"
+
+            aws ecs wait services-stable \
+              --cluster "$ECS_CLUSTER" \
+              --services "$ECS_SERVICE"
+
+            echo "Rollback completed."
+          }
+
+          if ! aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$NEW_TASK_DEFINITION"; then
+            echo "ECS rejected the deployment update."
+            exit 1
+          fi
+
+          if ! aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE"; then
+            rollback
+            exit 1
+          fi
+
+          # Verify the application endpoint, not just ECS status.
+          HEALTHY=false
+
+          for attempt in $(seq 1 10); do
+            if curl --fail --silent --show-error \
+              --max-time 5 "$API_HEALTH_URL"; then
+              echo "Health endpoint returned success."
+              HEALTHY=true
+              break
+            fi
+
+            echo "Health check attempt ${attempt}/10 failed."
+            sleep 6
+          done
+
+          if [[ "$HEALTHY" != "true" ]]; then
+            rollback
+            exit 1
+          fi
+
+          echo "Deployment succeeded: ${NEW_TASK_DEFINITION}"
