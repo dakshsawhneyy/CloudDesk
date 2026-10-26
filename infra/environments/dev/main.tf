@@ -24,4 +24,6 @@ module "aws_backend" {
   environment  = var.environment
   aws_region   = var.aws_region
   image_tag    = var.image_tag
+  db_name      = var.db_name
+  db_username  = var.db_username
 }
