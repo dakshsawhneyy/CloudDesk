@@ -13,3 +13,11 @@ output "ecs_cluster_name" {
 output "ecs_service_name" {
   value = aws_ecs_service.api.name
 }
+
+output "cloudwatch_dashboard_name" {
+  value = aws_cloudwatch_dashboard.application.dashboard_name
+}
+
+output "sns_alert_topic_arn" {
+  value = aws_sns_topic.alerts.arn
+}

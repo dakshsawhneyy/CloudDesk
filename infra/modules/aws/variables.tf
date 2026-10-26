@@ -32,3 +32,9 @@ variable "db_username" {
 variable "frontend_origin" {
   type = string
 }
+
+variable "alert_email" {
+  description = "Email address for development monitoring alerts; empty disables email subscription"
+  type        = string
+  default     = ""
+}
