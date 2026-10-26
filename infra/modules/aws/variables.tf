@@ -28,3 +28,7 @@ variable "db_username" {
   type    = string
   default = "saasadmin"
 }
+
+variable "frontend_origin" {
+  type = string
+}

@@ -223,6 +223,10 @@ resource "aws_ecs_task_definition" "api" {
         {
           name  = "DB_SSL"
           value = "true"
+        },
+        {
+          name  = "FRONTEND_ORIGIN"
+          value = var.frontend_origin
         }
       ]
 

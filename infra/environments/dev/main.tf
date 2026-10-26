@@ -26,4 +26,7 @@ module "aws_backend" {
   image_tag    = var.image_tag
   db_name      = var.db_name
   db_username  = var.db_username
+  frontend_origin = module.azure_frontend.frontend_url
+
+  depends_on = [ module.azure_frontend ]
 }
