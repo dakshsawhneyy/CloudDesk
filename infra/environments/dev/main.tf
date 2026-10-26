@@ -27,6 +27,7 @@ module "aws_backend" {
   db_name      = var.db_name
   db_username  = var.db_username
   frontend_origin = module.azure_frontend.frontend_url
+  alert_email = var.alert_email
 
   depends_on = [ module.azure_frontend ]
 }

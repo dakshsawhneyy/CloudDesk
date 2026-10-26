@@ -37,3 +37,9 @@ variable "db_name" {
 variable "db_username" {
   type = string
 }
+
+variable "alert_email" {
+  description = "Email address for monitoring alerts"
+  type        = string
+  default     = ""
+}
