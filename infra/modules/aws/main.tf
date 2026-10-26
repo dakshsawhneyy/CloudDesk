@@ -251,6 +251,10 @@ resource "aws_ecs_service" "api" {
 
   health_check_grace_period_seconds = 60
 
+  lifecycle {
+    ignore_changes = [ task_definition ]
+  }
+
   network_configuration {
     subnets          = aws_subnet.public[*].id
     security_groups  = [aws_security_group.task.id]
