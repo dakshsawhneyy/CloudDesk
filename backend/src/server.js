@@ -11,7 +11,6 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cors = require("cors");
 
-app.use(cors());
 app.use(express.json());
 
 const pool = new Pool({
