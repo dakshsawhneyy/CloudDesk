@@ -35,7 +35,7 @@ async function initializeDatabase() {
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "ok",
-    service: "saas-api",
+    service: "saas-clouddesk-api",
   });
 });
 
