@@ -22,9 +22,9 @@ output "aws_api_url" {
 }
 
 output "cloudwatch_dashboard_name" {
-  value = aws_cloudwatch_dashboard.application.dashboard_name
+  value = module.aws_backend.cloudwatch_dashboard_name
 }
 
 output "sns_alert_topic_arn" {
-  value = aws_sns_topic.alerts.arn
+  value = module.aws_backend.sns_alert_topic_arn
 }

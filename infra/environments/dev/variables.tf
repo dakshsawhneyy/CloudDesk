@@ -43,3 +43,9 @@ variable "alert_email" {
   type        = string
   default     = ""
 }
+
+variable "aws_monthly_budget_amount" {
+  description = "Monthly AWS cost budget in USD"
+  type        = number
+  default     = 50
+}

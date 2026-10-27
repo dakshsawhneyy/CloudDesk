@@ -28,6 +28,8 @@ module "aws_backend" {
   db_username  = var.db_username
   frontend_origin = module.azure_frontend.frontend_url
   alert_email = var.alert_email
+  aws_monthly_budget_amount = var.aws_monthly_budget_amount
+  monthly_budget_amount = var.aws_monthly_budget_amount
 
   depends_on = [ module.azure_frontend ]
 }
