@@ -32,7 +32,7 @@ provider "aws" {
       Environment = var.environment
       ManagedBy   = "terraform"
       Owner       = "platform-team"
-      Created_By = "Daksh"
+      Created_By  = "Daksh"
     }
   }
 }

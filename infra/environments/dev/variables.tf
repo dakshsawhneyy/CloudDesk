@@ -4,8 +4,13 @@ variable "project_name" {
 }
 
 variable "environment" {
-  type    = string
-  default = "dev"
+  description = "Deployment environment"
+  type        = string
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod."
+  }
 }
 
 variable "azure_location" {
