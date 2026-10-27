@@ -256,7 +256,13 @@ resource "aws_ecs_service" "api" {
   health_check_grace_period_seconds = 60
 
   lifecycle {
-    ignore_changes = [ task_definition ]
+    ignore_changes = [task_definition]
+  }
+
+  # ECS should attempt rollback to prev deployment
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
   }
 
   network_configuration {
@@ -334,12 +340,12 @@ resource "aws_secretsmanager_secret_version" "db" {
 }
 
 resource "aws_db_instance" "main" {
-  identifier             = "${var.project_name}-${var.environment}-db"
-  engine                 = "postgres"
-  instance_class         = "db.t3.micro"
-  allocated_storage      = 20
-  max_allocated_storage  = 100
-  storage_encrypted      = true
+  identifier            = "${var.project_name}-${var.environment}-db"
+  engine                = "postgres"
+  instance_class        = "db.t3.micro"
+  allocated_storage     = 20
+  max_allocated_storage = 100
+  storage_encrypted     = true
 
   db_name  = var.db_name
   username = var.db_username
@@ -350,9 +356,9 @@ resource "aws_db_instance" "main" {
   vpc_security_group_ids = [aws_security_group.database.id]
   publicly_accessible    = false
 
-  backup_retention_period = 1
   skip_final_snapshot     = true
-  deletion_protection     = false
+  backup_retention_period = var.environment == "prod" ? 7 : 1
+  deletion_protection     = var.environment == "prod"
 
   tags = {
     Project     = var.project_name

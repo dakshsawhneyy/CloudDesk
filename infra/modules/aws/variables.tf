@@ -4,8 +4,14 @@ variable "project_name" {
 }
 
 variable "environment" {
-  type    = string
-  default = "dev"
+  description = "Deployment environment"
+  type        = string
+
+  validation {
+    # Subjective - your organization
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Environment must be dev, staging, or prod."
+  }
 }
 
 variable "aws_region" {
