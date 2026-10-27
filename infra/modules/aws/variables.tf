@@ -38,3 +38,20 @@ variable "alert_email" {
   type        = string
   default     = ""
 }
+
+variable "monthly_budget_amount" {
+  description = "Monthly AWS cost budget in USD"
+  type        = number
+  default     = 50
+
+  validation {
+    condition     = var.monthly_budget_amount > 0
+    error_message = "Monthly budget must be greater than zero."
+  }
+}
+
+variable "aws_monthly_budget_amount" {
+  description = "Monthly AWS cost budget in USD"
+  type        = number
+  default     = 50
+}
