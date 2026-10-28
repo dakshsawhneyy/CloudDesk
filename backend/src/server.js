@@ -1,4 +1,5 @@
 require("dotenv").config();
+const { publishApplicationEvent } = require("./analytics");
 
 const express = require("express");
 const cors = require("cors");
@@ -133,6 +134,22 @@ app.post("/api/tasks", async (req, res) => {
       "INSERT INTO tasks (title) VALUES ($1) RETURNING id, title, status",
       [title]
     );
+
+    const task = result.rows[0];
+
+    void publishApplicationEvent({
+      eventType: "task.created",
+      taskId: String(task.id),
+      environment: process.env.APP_ENV || "dev",
+    }).catch((error) => {
+      console.error(JSON.stringify({
+        level: "error",
+        event: "application_event_publish_failed",
+        event_type: "task.created",
+        task_id: String(task.id),
+        error: error.message,
+      }));
+    });
 
     res.status(201).json(result.rows[0]);
   } catch {
