@@ -34,7 +34,7 @@ module "aws_backend" {
   gcp_project_id  = var.gcp_project_id
   gcp_pubsub_topic = module.gcp_analytics.topic_name
 
-  depends_on = [module.azure_frontend]
+  depends_on = [module.azure_frontend, module.gcp_analytics]
 }
 
 
@@ -46,5 +46,5 @@ module "gcp_analytics" {
   region             = var.gcp_region
   aws_account_id     = var.aws_account_id
   aws_task_role_name = var.aws_task_role_name
-
+  
 }

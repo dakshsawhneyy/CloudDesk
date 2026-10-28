@@ -27,6 +27,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy application code from builder
 COPY --from=builder --chown=appuser:appgroup /app/src ./src
 
+# Copy GCP Workload Identity Federation credentials
+COPY --chown=appuser:appgroup gcp-wif.json /app/gcp-wif.json
+
 # Run as non-root user
 USER appuser
 
