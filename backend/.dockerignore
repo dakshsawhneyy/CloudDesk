@@ -6,4 +6,3 @@ npm-debug.log
 .git
 coverage
 test
-gcp-wif.json
