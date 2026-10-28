@@ -28,3 +28,11 @@ output "cloudwatch_dashboard_name" {
 output "sns_alert_topic_arn" {
   value = module.aws_backend.sns_alert_topic_arn
 }
+
+output "gcp_workload_identity_provider_name" {
+  value = module.gcp_analytics.workload_identity_provider_name
+}
+
+output "gcp_event_publisher_service_account" {
+  value = module.gcp_analytics.service_account_email
+}

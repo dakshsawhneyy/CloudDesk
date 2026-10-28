@@ -17,6 +17,11 @@ terraform {
       version = ">= 5.0, < 8.0"
     }
 
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = ">= 5.0, < 8.0"
+    }
+
     random = {
       source  = "hashicorp/random"
       version = ">= 3.0, < 4.0"
@@ -39,4 +44,14 @@ provider "aws" {
 
 provider "azurerm" {
   features {}
+}
+
+provider "google" {
+  project = var.gcp_project_id
+  region  = var.gcp_region
+}
+
+provider "google-beta" {
+  project = var.gcp_project_id
+  region  = var.gcp_region
 }

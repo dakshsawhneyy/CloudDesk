@@ -31,5 +31,20 @@ module "aws_backend" {
   aws_monthly_budget_amount = var.aws_monthly_budget_amount
   monthly_budget_amount     = var.aws_monthly_budget_amount
 
+  gcp_project_id  = var.gcp_project_id
+  gcp_pubsub_topic = module.gcp_analytics.topic_name
+
   depends_on = [module.azure_frontend]
+}
+
+
+# GCP Analytics
+module "gcp_analytics" {
+  source = "../../modules/gcp"
+
+  project_id         = var.gcp_project_id
+  region             = var.gcp_region
+  aws_account_id     = var.aws_account_id
+  aws_task_role_name = var.aws_task_role_name
+
 }

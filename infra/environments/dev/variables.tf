@@ -54,3 +54,24 @@ variable "aws_monthly_budget_amount" {
   type        = number
   default     = 50
 }
+
+variable "gcp_project_id" {
+  type        = string
+  description = "Google Cloud project ID"
+}
+
+variable "gcp_region" {
+  type        = string
+  description = "Google Cloud region for analytics resources"
+  default     = "us-central1"
+}
+
+variable "aws_account_id" {
+  type        = string
+  description = "AWS account ID containing the ECS task role"
+}
+
+variable "aws_task_role_name" {
+  type        = string
+  description = "Exact IAM role name assigned to the ECS API task"
+}
