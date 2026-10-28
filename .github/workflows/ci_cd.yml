@@ -122,6 +122,7 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+
        # ADD THIS STEP
       - name: Resolve production ALB hostname
         id: alb
