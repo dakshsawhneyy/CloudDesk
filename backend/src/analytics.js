@@ -63,8 +63,13 @@ function getPubSubClient() {
       throw new Error("Invalid Google WIF external-account configuration");
     }
 
+    const {
+      credential_source,
+      ...wifOptions
+    } = wifConfig;
+
     const authClient = new AwsClient({
-      ...wifConfig,
+      ...wifOptions,
       aws_security_credentials_supplier:
         new EcsAwsCredentialsSupplier(),
     });
