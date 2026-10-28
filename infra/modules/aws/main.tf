@@ -252,6 +252,10 @@ resource "aws_ecs_task_definition" "api" {
         value = "/run/credentials/gcp-wif.json"
       },
       {
+        name  = "AWS_REGION"
+        value = var.aws_region
+      },
+      {
         name  = "APP_ENV"
         value = var.environment
       }
