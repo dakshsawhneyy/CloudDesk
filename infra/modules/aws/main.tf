@@ -112,17 +112,21 @@ resource "aws_iam_role_policy_attachment" "execution" {
   role       = aws_iam_role.execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
-
 resource "aws_iam_role_policy" "read_db_secret" {
-  name = "read-database-secret"
+  name = "read-application-secrets"
   role = aws_iam_role.execution.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["secretsmanager:GetSecretValue"]
-      Resource = aws_secretsmanager_secret.db.arn
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:GetSecretValue"
+      ]
+      Resource = [
+        aws_secretsmanager_secret.db.arn,
+        data.aws_secretsmanager_secret.gcp_wif.arn
+      ]
     }]
   })
 }
@@ -176,6 +180,12 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+
+data "aws_secretsmanager_secret" "gcp_wif" {
+  name = "cloud-desk/prod/gcp-wif-config"
+}
+
+
 resource "aws_ecs_task_definition" "api" {
   family                   = "${var.project_name}-${var.environment}-api"
   requires_compatibilities = ["FARGATE"]
@@ -207,55 +217,61 @@ resource "aws_ecs_task_definition" "api" {
         }
       }
 
-      environment = [
-        {
-          name  = "DB_HOST"
-          value = aws_db_instance.main.address
-        },
-        {
-          name  = "DB_PORT"
-          value = "5432"
-        },
-        {
-          name  = "DB_NAME"
-          value = var.db_name
-        },
-        {
-          name  = "DB_SSL"
-          value = "true"
-        },
-        {
-          name  = "FRONTEND_ORIGIN"
-          value = var.frontend_origin
-        },
-        {
-          name  = "GCP_PROJECT_ID"
-          value = var.gcp_project_id
-        },
-        {
-          name  = "GCP_PUBSUB_TOPIC"
-          value = var.gcp_pubsub_topic
-        },
-        {
-          name  = "GOOGLE_APPLICATION_CREDENTIALS"
-          value = "/app/gcp-wif.json"
-        },
-        {
-          name  = "APP_ENV"
-          value = var.environment
-        }
-      ]
+      
+    environment = [
+      {
+        name  = "DB_HOST"
+        value = aws_db_instance.main.address
+      },
+      {
+        name  = "DB_PORT"
+        value = "5432"
+      },
+      {
+        name  = "DB_NAME"
+        value = var.db_name
+      },
+      {
+        name  = "DB_SSL"
+        value = "true"
+      },
+      {
+        name  = "FRONTEND_ORIGIN"
+        value = var.frontend_origin
+      },
+      {
+        name  = "GCP_PROJECT_ID"
+        value = var.gcp_project_id
+      },
+      {
+        name  = "GCP_PUBSUB_TOPIC"
+        value = var.gcp_pubsub_topic
+      },
+      {
+        name  = "GOOGLE_APPLICATION_CREDENTIALS"
+        value = "/run/credentials/gcp-wif.json"
+      },
+      {
+        name  = "APP_ENV"
+        value = var.environment
+      }
+    ]
 
-      secrets = [
-        {
-          name      = "DB_USER"
-          valueFrom = "${aws_secretsmanager_secret.db.arn}:username::"
-        },
-        {
-          name      = "DB_PASSWORD"
-          valueFrom = "${aws_secretsmanager_secret.db.arn}:password::"
-        }
-      ]
+    secrets = [
+      {
+        name      = "DB_USER"
+        valueFrom = "${aws_secretsmanager_secret.db.arn}:username::"
+      },
+      {
+        name      = "DB_PASSWORD"
+        valueFrom = "${aws_secretsmanager_secret.db.arn}:password::"
+      },
+      {
+        name      = "GCP_WIF_CONFIG"
+        valueFrom = data.aws_secretsmanager_secret.gcp_wif.arn
+      }
+    ]
+
     }
   ])
 
