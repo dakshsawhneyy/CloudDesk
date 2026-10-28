@@ -30,7 +30,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=builder --chown=appuser:appgroup /app/src ./src
 
 COPY --chown=appuser:appgroup docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod 755 ./docker-entrypoint.sh
+RUN sed -i 's/\r$//' ./docker-entrypoint.sh \
+    && chmod 755 ./docker-entrypoint.sh
 
 USER appuser
 
