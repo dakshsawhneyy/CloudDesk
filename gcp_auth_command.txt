@@ -1,0 +1,22 @@
+gcloud iam workload-identity-pools create-cred-config \
+  "$(terraform output -raw gcp_workload_identity_provider_name)" \
+  --service-account="$(terraform output -raw gcp_event_publisher_service_account)" \
+  --aws \
+  --output-file=../../../backend/gcp-wif.json
+
+
+curl -X POST "$API_BASE_URL/api/tasks" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Analytics integration test"}'
+
+
+
+SELECT
+  event_id,
+  event_type,
+  occurred_at,
+  task_id,
+  environment
+FROM `YOUR_PROJECT_ID.saas_analytics.application_events`
+ORDER BY occurred_at DESC
+LIMIT 20;
