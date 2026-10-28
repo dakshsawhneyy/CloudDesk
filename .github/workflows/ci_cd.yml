@@ -122,6 +122,30 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+       # ADD THIS STEP
+      - name: Resolve production ALB hostname
+        id: alb
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TG_ARN="arn:aws:elasticloadbalancing:ap-south-1:634740393634:targetgroup/saas-prod-tg/f5d42d322e54c07a"
+
+          LB_ARN=$(aws elbv2 describe-target-groups \
+            --target-group-arns "$TG_ARN" \
+            --region "$AWS_REGION" \
+            --query 'TargetGroups[0].LoadBalancerArns[0]' \
+            --output text)
+
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --load-balancer-arns "$LB_ARN" \
+            --region "$AWS_REGION" \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text)
+
+          echo "ALB_DNS=$ALB_DNS" >> "$GITHUB_ENV"
+          echo "Resolved ALB hostname: $ALB_DNS"
+
       - name: Deploy image and verify release
         shell: bash
         run: |
