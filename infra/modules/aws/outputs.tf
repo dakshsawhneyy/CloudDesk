@@ -21,3 +21,4 @@ output "cloudwatch_dashboard_name" {
 output "sns_alert_topic_arn" {
   value = aws_sns_topic.alerts.arn
 }
+

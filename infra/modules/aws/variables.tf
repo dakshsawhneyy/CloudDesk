@@ -61,3 +61,13 @@ variable "aws_monthly_budget_amount" {
   type        = number
   default     = 50
 }
+
+
+############################
+variable "gcp_project_id" {
+  type = string
+}
+
+variable "gcp_pubsub_topic" {
+  type = string
+}

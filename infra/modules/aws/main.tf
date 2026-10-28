@@ -227,6 +227,22 @@ resource "aws_ecs_task_definition" "api" {
         {
           name  = "FRONTEND_ORIGIN"
           value = var.frontend_origin
+        },
+        {
+          name  = "GCP_PROJECT_ID"
+          value = var.gcp_project_id
+        },
+        {
+          name  = "GCP_PUBSUB_TOPIC"
+          value = var.gcp_pubsub_topic
+        },
+        {
+          name  = "GOOGLE_APPLICATION_CREDENTIALS"
+          value = "/app/gcp-wif.json"
+        },
+        {
+          name  = "APP_ENV"
+          value = var.environment
         }
       ]
 
@@ -326,7 +342,7 @@ resource "random_password" "db" {
 }
 
 resource "aws_secretsmanager_secret" "db" {
-  name                    = "${var.project_name}/${var.environment}/postgres"
+  name                    = "${var.project_name}/${var.environment}-2/postgres"
   recovery_window_in_days = 7
 }
 
@@ -358,7 +374,7 @@ resource "aws_db_instance" "main" {
 
   skip_final_snapshot     = true
   backup_retention_period = var.environment == "prod" ? 7 : 1
-  deletion_protection     = var.environment == "prod"
+  deletion_protection     = false
 
   tags = {
     Project     = var.project_name
