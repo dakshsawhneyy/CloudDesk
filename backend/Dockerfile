@@ -7,6 +7,7 @@ COPY package*.json ./
 RUN npm ci
 
 COPY src/ ./src/
+COPY gcp-wif.json gcp-wif.json
 
 # Stage 2: Production image
 FROM node:22-alpine AS production
