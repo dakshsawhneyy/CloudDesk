@@ -42,7 +42,7 @@ The focus is not just deploying an application. It is understanding how to build
 ### How the platform works
 
 **1. User requests**
-![Azure dashboard](docs/images/azure-dashboard.png)
+![Azure dashboard](docs/images/azure_deployment.png)
 The user interacts with the React application hosted on Azure Static Web Apps. The frontend sends API requests to the AWS Application Load Balancer, which routes traffic to the ECS-hosted Express API.
 
 **2. Application and data**
